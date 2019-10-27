@@ -69,7 +69,6 @@ const generateSteps = (config) => {
 
 	for (var i = 0; i < steps; i++) {
 		debug('i: ' + i);
-		stepStart = stepStart + i;
 		stepAmount = stepStart + step > end ? end - stepStart : step;
 
 		stepConfig = {
