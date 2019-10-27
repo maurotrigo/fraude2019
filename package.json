@@ -1,0 +1,24 @@
+{
+  "name": "scrapi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "DEBUG=* npx nodemon --inspect src/app.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "debug": "^4.1.1",
+    "firebase-admin": "^8.6.1",
+    "moment": "^2.24.0",
+    "request": "^2.88.0",
+    "request-promise-native": "^1.0.7",
+    "restify": "^8.4.0",
+    "server": "^1.0.19"
+  },
+  "devDependencies": {
+    "nodemon": "^1.19.4"
+  }
+}

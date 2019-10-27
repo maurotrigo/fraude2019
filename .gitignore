@@ -1,0 +1,8 @@
+node_modules
+
+config/config.json
+config/serviceAccountKey.json
+.openode
+docker-compose.yml
+Dockerfile
+data
