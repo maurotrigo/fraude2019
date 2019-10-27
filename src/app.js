@@ -15,7 +15,7 @@ server.post('/electores', function(req, res, next) {
 		step: 1000
 	};
 
-	hostKey = req.body.config.source || 'computo';
+	let hostKey = req.body.config.source || 'computo';
 
 	const host = appConfig.hosts[hostKey];
 
