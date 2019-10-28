@@ -1,5 +1,6 @@
 const restify = require('restify');
 const debug = require('debug')('server');
+const dns = require('dns');
 
 const appConfig = require('../config/config.json')
 const electores = require('./electores');
@@ -7,6 +8,14 @@ const electores = require('./electores');
 
 const server = restify.createServer();
 server.use(restify.plugins.bodyParser());
+
+server.get('/ip', function(req, res, next) {
+	dns.lookup(require('os').hostname(), function (err, address, fam) {
+		res.send(200, {
+			address: address
+		});
+	})
+});
 
 server.post('/electores', function(req, res, next) {
 	const config = req.body.config || {
@@ -29,12 +38,13 @@ server.post('/electores', function(req, res, next) {
 	let stepConfigs = steps.stepConfigs;
 
 	const env = req.body.env || 'test';
+	const execId = req.body.exec;
 	let electoresFn = env === 'test' ? testCallback : electores;
 
 	executeSteps(stepConfigs, function(currentStepConfig, result) {
 		debug(currentStepConfig);
 		debug(result);
-		return electoresFn(currentStepConfig, host);
+		return electoresFn(currentStepConfig, host, execId);
 	})
 
 	next();

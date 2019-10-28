@@ -5,15 +5,15 @@ const databaseDebug = require('debug')('database');
 const errorDebug = require('debug')('error');
 const parseDebug = require('debug')('parse');
 
-const firebase = require('./firebase');
+const Database = require('./database');
 const Api = require('./api');
 
-const db = firebase.getFirestore();
+const db = new Database();
+
 
 const saveData = (itemId, data) => {
 	databaseDebug('Saving', itemId);
-	let docRef = db.collection('electores').doc('elector-' + itemId);
-	docRef.set(data);
+	db.saveElector(data);
 };
 
 const parseData = (itemId, data) => {
@@ -34,29 +34,32 @@ const parseData = (itemId, data) => {
 	}
 };
 
-const saveRun = (config, validItems, invalidItems) => {
+const saveRun = (config, validItems, invalidItems, execId) => {
 	let runId = moment().format('lll');
 	databaseDebug('Saving run: ' + runId);
 
-	let docRef = db.collection('electores_runs').doc(runId);
 	let newRun = {
+		execId: execId,
 		config: config,
 		valid: validItems,
-		invalid: invalidItems
+		invalid: invalidItems,
+		created_at: moment().toDate()
 	};
-	docRef.set(newRun);
 
-	newRun.id = runId;
+	db.saveElectoresRun(newRun);
+
 	return newRun;
 };
 
-module.exports = function(config, host) {
+module.exports = function(config, host, execId) {
+	execId = execId || 'local';
 
 	const api = new Api(host);
 
 	let start = config.start || 0,
 		amount = config.amount || 10,
 		end = start + amount;
+	let collection = [];
 	return new Promise((resolve, reject) => {
 		try {
 
@@ -74,7 +77,7 @@ module.exports = function(config, host) {
 						if (data) {
 							debug(data);
 							validItemsCount++;
-							saveData(itemId, data);
+							collection.push(data);
 						} else {
 							invalidItemsCount++;
 						}
@@ -90,8 +93,15 @@ module.exports = function(config, host) {
 				.then(function() {
 					debug('Finished.');
 					debug('invalidItemsCount:', invalidItemsCount);
-					let runResult = saveRun(config, validItemsCount, invalidItemsCount);
+
+					db.saveElectores(collection);
+
+					let runResult = saveRun(config, validItemsCount, invalidItemsCount, execId);
 					resolve(runResult);
+				})
+				.catch(function(err) {
+					errorDebug('err:', err);
+					reject(err);
 				});
 		} catch (error) {
 			reject(error);
