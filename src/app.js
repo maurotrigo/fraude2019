@@ -3,12 +3,12 @@ const debug = require('debug')('server');
 
 const appConfig = require('../config/config.json')
 const electores = require('./electores');
-
+const utils = require('./utils');
 
 const server = restify.createServer();
 server.use(restify.plugins.bodyParser());
 
-server.post('/electores', function(req, res, next) {
+server.post('/electores', (req, res, next) => {
 	const config = req.body.config || {
 		start: 0,
 		amount: 10,
@@ -29,27 +29,41 @@ server.post('/electores', function(req, res, next) {
 	let stepConfigs = steps.stepConfigs;
 
 	const env = req.body.env || 'test';
+	const exec = req.body.exec;
 	let electoresFn = env === 'test' ? testCallback : electores;
 
-	executeSteps(stepConfigs, function(currentStepConfig, result) {
+	executeSteps(stepConfigs, (currentStepConfig, result) => {
 		debug(currentStepConfig);
 		debug(result);
-		return electoresFn(currentStepConfig, host);
+		return electoresFn(currentStepConfig, host, exec);
 	})
+		.then(() => {
+			debug('Saving macro...');
+			utils.saveMacro({
+				exec: exec,
+				config: config
+			});
+		});
 
 	next();
 });
 
 const executeSteps = (steps, fn) => {
-	var stepPromise = new Promise((resolve) => { resolve({ message: 'INIT' }); }),
-		stepIndex = 0;
-	while (stepIndex < steps.length) {
-		let currentStep = steps[stepIndex];
-		stepPromise = stepPromise.then((result) => {
-			return fn(currentStep, result);
-		});
-		stepIndex++;
-	}
+	let promises = [];
+	return new Promise((resolve, reject) => {
+		var stepPromise = new Promise((resolve) => { resolve({ message: 'INIT' }); }),
+			stepIndex = 0;
+		while (stepIndex < steps.length) {
+			let currentStep = steps[stepIndex];
+			stepPromise = stepPromise.then((result) => {
+				return fn(currentStep, result);
+			});
+			promises.push(stepPromise);
+			stepIndex++;
+		}
+
+		Promise.all(promises).then(resolve);
+	});
 };
 
 const generateSteps = (config) => {
@@ -96,12 +110,12 @@ const generateSteps = (config) => {
 
 const testCallback = (config) => {
 	return new Promise((resolve, reject) => {
-		setTimeout(function() {
+		setTimeout(() => {
 			resolve(config);
 		}, 1000);
 	});
 };
 
-server.listen(80, function() {
+server.listen(80, () => {
   debug('%s listening at %s', server.name, server.url);
 });
