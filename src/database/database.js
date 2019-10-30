@@ -1,7 +1,8 @@
 const MongoClient = require('mongodb').MongoClient;
 const debug = require('debug')('db');
+const moment = require('moment');
 
-const appConfig = require('../config/config.json')
+const appConfig = require('../../config/config.json')
 
 class Database {
 
@@ -39,11 +40,29 @@ class Database {
 		});
 	}
 
-	saveElectoresRun(electoresRun) {
+	saveRun(electoresRun) {
 		return new Promise((resolve, reject) => {
 			let col = this.db.collection('electores_run');
 
 			col.insertOne(electoresRun, (err, result) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve(result);
+				}
+			});
+		});
+	}
+
+	saveMacro(data) {
+		return new Promise((resolve, reject) => {
+			let macroId = moment().format('lll');
+			debug('Saving macro ' + macroId);
+			let col = this.db.collection('macros');
+			col.insertOne({
+				created_at: moment().toDate(),
+				data: data
+			}, (err, result) => {
 				if (err) {
 					reject(err);
 				} else {

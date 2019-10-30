@@ -1,27 +1,26 @@
 const moment = require('moment');
 
 const debug = require('debug')('main');
-const databaseDebug = require('debug')('database');
 const errorDebug = require('debug')('error');
 const parseDebug = require('debug')('parse');
 
-const Database = require('./database');
-const Api = require('./api');
+const electoresDB = require('./database/electores-firebase');
+const Api = require('./support/api');
 
-const db = new Database();
-
-
-const saveData = (itemId, data) => {
-	databaseDebug('Saving', itemId);
-	db.saveElector(data);
-};
-
+const NO_RESULT = -1,
+	REQUEST_ERROR = -2;
 const parseData = (itemId, data) => {
 	try {
 		data = JSON.parse(data);
+
+		if (!data.listaMesa) {
+			return REQUEST_ERROR;
+		}
+
 		data.listaMesa = data.listaMesa || [];
+
 		if (!data.listaMesa.length) {
-			return null;
+			return NO_RESULT;
 		} else {
 			data.created_at = moment().toDate();
 			data.ci = itemId;
@@ -30,40 +29,22 @@ const parseData = (itemId, data) => {
 		}
 	} catch (error) {
 		parseDebug(error);
-		return null;
+		return REQUEST_ERROR;
 	}
 };
 
-const saveRun = (config, validItems, invalidItems, execId) => {
-	let runId = moment().format('lll');
-	databaseDebug('Saving run: ' + runId);
-
-	let newRun = {
-		execId: execId,
-		config: config,
-		valid: validItems,
-		invalid: invalidItems,
-		created_at: moment().toDate()
-	};
-
-	db.saveElectoresRun(newRun);
-
-	return newRun;
-};
-
 module.exports = function(config, host, execId) {
-	execId = execId || 'local';
 
 	const api = new Api(host);
 
 	let start = config.start || 0,
 		amount = config.amount || 10,
 		end = start + amount;
-	let collection = [];
 	return new Promise((resolve, reject) => {
 		try {
 
 			let promises = [],
+				errors = 0,
 				validItemsCount = 0,
 				invalidItemsCount = 0,
 				promise;
@@ -74,15 +55,31 @@ module.exports = function(config, host, execId) {
 				promise = api.request(api.getElectorUrl(itemId))
 					.then(function(body) {
 						let data = parseData(itemId, body);
-						if (data) {
-							debug(data);
-							validItemsCount++;
-							collection.push(data);
-						} else {
-							invalidItemsCount++;
+
+						switch (data) {
+
+							case REQUEST_ERROR: {
+								electoresDB.reportError(body);
+								errors++;
+								break;
+							}
+
+							case NO_RESULT: {
+								invalidItemsCount++;
+								break;
+							}
+
+							default: {
+								debug(data);
+								validItemsCount++;
+								electoresDB.saveData(itemId, execId, data);
+							}
+
 						}
+
 					})
 					.catch(function(err) {
+						errors++;
 						errorDebug('err:', err);
 					});
 
@@ -93,17 +90,16 @@ module.exports = function(config, host, execId) {
 				.then(function() {
 					debug('Finished.');
 					debug('invalidItemsCount:', invalidItemsCount);
-
-					db.saveElectores(collection);
-
-					let runResult = saveRun(config, validItemsCount, invalidItemsCount, execId);
+					let runResult = electoresDB.saveRun({
+						config: config,
+						valid: validItemsCount,
+						invalid: invalidItemsCount,
+						errors: errors,
+					});
 					resolve(runResult);
-				})
-				.catch(function(err) {
-					errorDebug('err:', err);
-					reject(err);
 				});
 		} catch (error) {
+			electoresDB.reportError(error);
 			reject(error);
 		}
 	});

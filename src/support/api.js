@@ -28,7 +28,7 @@ class Api {
 	request(url, options) {
 		options = options || this.getDefaultOptions();
 		options.url = url;
-		return requestPromise(options)
+		return requestPromise(options);
 }
 
 	getDefaultOptions() {

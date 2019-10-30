@@ -1,23 +1,16 @@
 const restify = require('restify');
 const debug = require('debug')('server');
-const dns = require('dns');
 
 const appConfig = require('../config/config.json')
-const electores = require('./electores');
+const electores = require('./electores-mongodb');
+const Database = require('./database/database');
 
+const db = new Database();
 
 const server = restify.createServer();
 server.use(restify.plugins.bodyParser());
 
-server.get('/ip', function(req, res, next) {
-	dns.lookup(require('os').hostname(), function (err, address, fam) {
-		res.send(200, {
-			address: address
-		});
-	})
-});
-
-server.post('/electores', function(req, res, next) {
+server.post('/electores', (req, res, next) => {
 	const config = req.body.config || {
 		start: 0,
 		amount: 10,
@@ -38,19 +31,38 @@ server.post('/electores', function(req, res, next) {
 	let stepConfigs = steps.stepConfigs;
 
 	const env = req.body.env || 'test';
-	const execId = req.body.exec;
+	const exec = req.body.exec;
 	let electoresFn = env === 'test' ? testCallback : electores;
 
-	executeSteps(stepConfigs, function(currentStepConfig, result) {
+	executeSteps(stepConfigs, (currentStepConfig, result) => {
 		debug(currentStepConfig);
 		debug(result);
-		return electoresFn(currentStepConfig, host, execId);
+		return electoresFn(currentStepConfig, host, exec);
 	})
+		.then(() => {
+			debug('Saving macro...');
+			db.saveMacro({
+				exec: exec,
+				config: config
+			})
+				.catch(() => {
+					debug('Macro saved');
+				})
+				.error((error) => {
+					debug('Error');
+					debug(error);
+				});
+		})
+		.catch((error) => {
+			debug('Error');
+			debug(error);
+		});
 
 	next();
 });
 
 const executeSteps = (steps, fn) => {
+	let promises = [];
 	var stepPromise = new Promise((resolve) => { resolve({ message: 'INIT' }); }),
 		stepIndex = 0;
 	while (stepIndex < steps.length) {
@@ -58,8 +70,11 @@ const executeSteps = (steps, fn) => {
 		stepPromise = stepPromise.then((result) => {
 			return fn(currentStep, result);
 		});
+		promises.push(stepPromise);
 		stepIndex++;
 	}
+
+	return Promise.all(promises);
 };
 
 const generateSteps = (config) => {
@@ -106,12 +121,12 @@ const generateSteps = (config) => {
 
 const testCallback = (config) => {
 	return new Promise((resolve, reject) => {
-		setTimeout(function() {
+		setTimeout(() => {
 			resolve(config);
 		}, 1000);
 	});
 };
 
-server.listen(80, function() {
+server.listen(80, () => {
   debug('%s listening at %s', server.name, server.url);
 });
