@@ -16,17 +16,22 @@ class Database {
 			errors: []
 		};
 
-		client.connect((err) => {
-			if (err) {
-				debug(err);
-				this.status.errors.push(err);
-			} else {
-				debug('DB ' + dbName + ' connected!');
-				this.db = client.db(dbName);
-				this.status.connected = true;
-			}
-			client.close();
+		this.connectionPromise = new Promise((resolve, reject) => {
+			client.connect((err) => {
+				if (err) {
+					debug(err);
+					this.status.errors.push(err);
+					reject(err);
+				} else {
+					debug('DB ' + dbName + ' connected!');
+					this.db = client.db(dbName);
+					this.status.connected = true;
+					resolve(true);
+				}
+				client.close();
+			});
 		});
+
 	}
 
 	getStatus() {
