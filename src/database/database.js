@@ -51,11 +51,39 @@ class Database {
 		});
 	}
 
+	saveElector(elector) {
+		return new Promise((resolve, reject) => {
+			let col = this.db.collection('electores');
+
+			col.insertOne(elector, (err, result) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve(result);
+				}
+			});
+		});
+	}
+
 	saveRun(electoresRun) {
 		return new Promise((resolve, reject) => {
 			let col = this.db.collection('electores_run');
 
 			col.insertOne(electoresRun, (err, result) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve(result);
+				}
+			});
+		});
+	}
+
+	reportError(error) {
+		return new Promise((resolve, reject) => {
+			let col = this.db.collection('errors');
+
+			col.insertOne(error, (err, result) => {
 				if (err) {
 					reject(err);
 				} else {

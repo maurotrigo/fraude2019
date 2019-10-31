@@ -45,13 +45,17 @@ module.exports = function(config, host, execId) {
 		try {
 
 			let promises = [],
-				collection = [],
+				itemIds = [],
 				errors = 0,
 				validItemsCount = 0,
 				invalidItemsCount = 0,
 				promise;
 
 			for (let itemId = start; itemId < end; itemId++) {
+				itemIds.push(itemId);
+			}
+
+			itemIds.forEach((itemId) => {
 				debug('Elector ID: ' + itemId);
 
 				promise = api.requestWithTimeout(api.getElectorUrl(itemId), {}, 8)
@@ -73,7 +77,14 @@ module.exports = function(config, host, execId) {
 
 							default: {
 								debug(data);
-								collection.push(data);
+								electoresDB.saveElector(data)
+									.then(() => {
+										debug('Elector saved: ' + itemId);
+									})
+									.catch((error) => {
+										electoresDB.reportError(error);
+										errors++;
+									});
 								validItemsCount++;
 							}
 
@@ -86,19 +97,19 @@ module.exports = function(config, host, execId) {
 					});
 
 				promises.push(promise);
-			}
+			});
 
 			Promise.all(promises)
 				.then(function() {
 					debug('Finished.');
 					debug('invalidItemsCount:', invalidItemsCount);
 
-					debug('Saving electores...');
-					electoresDB.saveElectores(collection)
-						.then(() => {
-							debug('Electores saved!');
-						})
-						.catch(reject);
+					// debug('Saving electores...');
+					// electoresDB.saveElectores(collection)
+					// 	.then(() => {
+					// 		debug('Electores saved!');
+					// 	})
+					// 	.catch(reject);
 
 					let runResult = electoresDB.saveRun({
 						config: config,

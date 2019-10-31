@@ -29,15 +29,62 @@ server.get('/status', (req, res, next) => {
 });
 
 server.post('/electores', (req, res, next) => {
+	const type = req.body.type || 'simple';
+
+	if (type === 'simple') {
+		return electoresSimple(req, res, next);
+	} else {
+		return electoresWithSteps(req, res, next);
+	}
+});
+
+const electoresSimple = (req, res, next) => {
+	const config = req.body.config || {
+		start: 0,
+		amount: 10
+	};
+
+	res.send(200, {
+		config: config
+	});
+
+	let hostKey = req.body.config.source || 'computo';
+	const host = appConfig.hosts[hostKey];
+
+	const env = req.body.env || 'test';
+	const exec = req.body.exec;
+	let electoresFn = env === 'test' ? testCallback : electores;
+
+	electoresFn(config, host, exec)
+		.then(() => {
+			debug('Saving macro...');
+			db.saveMacro({
+				exec: exec,
+				config: config
+			})
+				.then(() => {
+					debug('Macro saved');
+				})
+				.catch((error) => {
+					debug('Macro error');
+					debug(error);
+				});
+		})
+		.catch((error) => {
+			debug('Error');
+			saveError(error);
+			debug(error);
+		});
+
+	next();
+};
+
+const electoresWithSteps = (req, res, next) => {
 	const config = req.body.config || {
 		start: 0,
 		amount: 10,
 		step: 1000
 	};
-
-	let hostKey = req.body.config.source || 'computo';
-
-	const host = appConfig.hosts[hostKey];
 
 	let steps = Utils.generateSteps(config);
 
@@ -45,6 +92,9 @@ server.post('/electores', (req, res, next) => {
 		config: config,
 		steps: steps
 	});
+
+	let hostKey = req.body.config.source || 'computo';
+	const host = appConfig.hosts[hostKey];
 
 	let stepConfigs = steps.stepConfigs;
 
@@ -78,7 +128,7 @@ server.post('/electores', (req, res, next) => {
 		});
 
 	next();
-});
+};
 
 const testCallback = (config) => {
 	return new Promise((resolve, reject) => {
