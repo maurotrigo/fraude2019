@@ -2,9 +2,10 @@ const restify = require('restify');
 const debug = require('debug')('server');
 
 const appConfig = require('../config/config.json')
-const electores = require('./electores-mongodb');
 const db = require('./database/database')();
 const Utils = require('./utils');
+
+const run = require('./run-electores');
 
 const server = restify.createServer();
 server.use(restify.plugins.bodyParser());
@@ -48,32 +49,10 @@ const electoresSimple = (req, res, next) => {
 		config: config
 	});
 
-	let hostKey = req.body.config.source || 'computo';
-	const host = appConfig.hosts[hostKey];
-
-	const env = req.body.env || 'test';
-	const exec = req.body.exec;
-	let electoresFn = env === 'test' ? testCallback : electores;
-
-	electoresFn(config, host, exec)
-		.then(() => {
-			debug('Saving macro...');
-			db.saveMacro({
-				exec: exec,
-				config: config
-			})
-				.then(() => {
-					debug('Macro saved');
-				})
-				.catch((error) => {
-					debug('Macro error');
-					debug(error);
-				});
-		})
+	let runOptions = prepareRunOptions(req);
+	run.runElectores(config, runOptions)
 		.catch((error) => {
-			debug('Error');
 			saveError(error);
-			debug(error);
 		});
 
 	next();
@@ -85,7 +64,6 @@ const electoresWithSteps = (req, res, next) => {
 		amount: 10,
 		step: 1000
 	};
-
 	let steps = Utils.generateSteps(config);
 
 	res.send(200, {
@@ -93,49 +71,27 @@ const electoresWithSteps = (req, res, next) => {
 		steps: steps
 	});
 
-	let hostKey = req.body.config.source || 'computo';
-	const host = appConfig.hosts[hostKey];
+	let runOptions = prepareRunOptions(req);
 
-	let stepConfigs = steps.stepConfigs;
-
-	const env = req.body.env || 'test';
-	const exec = req.body.exec;
-	let electoresFn = env === 'test' ? testCallback : electores;
-
-	Utils.executeSteps(stepConfigs, (currentStepConfig, result) => {
-		debug(currentStepConfig);
-		debug(result);
-		return electoresFn(currentStepConfig, host, exec);
-	})
-		.then(() => {
-			debug('Saving macro...');
-			db.saveMacro({
-				exec: exec,
-				config: config
-			})
-				.then(() => {
-					debug('Macro saved');
-				})
-				.catch((error) => {
-					debug('Macro error');
-					debug(error);
-				});
-		})
+	run.runElectoresWithSteps(config, runOptions, steps)
 		.catch((error) => {
-			debug('Error');
 			saveError(error);
-			debug(error);
 		});
 
 	next();
 };
 
-const testCallback = (config) => {
-	return new Promise((resolve, reject) => {
-		setTimeout(() => {
-			resolve(config);
-		}, 1000);
-	});
+const prepareRunOptions = (req) => {
+	let hostKey = req.body.config.source || 'computo';
+	const host = appConfig.hosts[hostKey];
+
+	const env = req.body.env || 'test';
+	const exec = req.body.exec;
+	return {
+		host: host,
+		env: env,
+		exec: exec
+	};
 };
 
 server.listen(80, () => {
