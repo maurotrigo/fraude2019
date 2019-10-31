@@ -16,6 +16,7 @@ class Database {
 			errors: []
 		};
 
+		debug('Connecting to DB ' + dbName + '...');
 		this.connectionPromise = new Promise((resolve, reject) => {
 			client.connect((err) => {
 				if (err) {

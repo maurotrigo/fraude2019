@@ -1,6 +1,5 @@
 const debug = require('debug')('server');
 
-const appConfig = require('../config/config.json')
 const electores = require('./electores-mongodb');
 const db = require('./database/database')();
 const Utils = require('./utils');
