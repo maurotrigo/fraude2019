@@ -11,15 +11,26 @@ class Database {
 		const client = new MongoClient(url, { useUnifiedTopology: true });
 		const dbName = 'f-2019';
 
+		this.status = {
+			connected: false,
+			errors: []
+		};
+
 		client.connect((err) => {
 			if (err) {
 				debug(err);
+				this.status.errors.push(err);
 			} else {
 				debug('DB ' + dbName + ' connected!');
 				this.db = client.db(dbName);
+				this.status.connected = true;
 			}
 			client.close();
 		});
+	}
+
+	getStatus() {
+		return this.status;
 	}
 
 	saveElectores(electoresCollection) {
@@ -74,4 +85,12 @@ class Database {
 
 }
 
-module.exports = Database;
+let db;
+
+module.exports = () => {
+	if (!db) {
+		db = new Database();
+	}
+
+	return db;
+};

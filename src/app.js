@@ -3,12 +3,30 @@ const debug = require('debug')('server');
 
 const appConfig = require('../config/config.json')
 const electores = require('./electores-mongodb');
-const Database = require('./database/database');
-
-const db = new Database();
+const db = require('./database/database')();
+const Utils = require('./utils');
 
 const server = restify.createServer();
 server.use(restify.plugins.bodyParser());
+
+let errors = [];
+
+const saveError = (error) => {
+	if (error.length >= 10) {
+		errors.pop();
+	}
+	errors.push(error);
+}
+
+server.get('/errors', (req, res, next) => {
+	res.send(200, {
+		errors: errors
+	});
+});
+
+server.get('/status', (req, res, next) => {
+	res.send(200, db.getStatus());
+});
 
 server.post('/electores', (req, res, next) => {
 	const config = req.body.config || {
@@ -21,7 +39,7 @@ server.post('/electores', (req, res, next) => {
 
 	const host = appConfig.hosts[hostKey];
 
-	let steps = generateSteps(config);
+	let steps = Utils.generateSteps(config);
 
 	res.send(200, {
 		config: config,
@@ -34,7 +52,7 @@ server.post('/electores', (req, res, next) => {
 	const exec = req.body.exec;
 	let electoresFn = env === 'test' ? testCallback : electores;
 
-	executeSteps(stepConfigs, (currentStepConfig, result) => {
+	Utils.executeSteps(stepConfigs, (currentStepConfig, result) => {
 		debug(currentStepConfig);
 		debug(result);
 		return electoresFn(currentStepConfig, host, exec);
@@ -45,79 +63,22 @@ server.post('/electores', (req, res, next) => {
 				exec: exec,
 				config: config
 			})
-				.catch(() => {
+				.then(() => {
 					debug('Macro saved');
 				})
-				.error((error) => {
-					debug('Error');
+				.catch((error) => {
+					debug('Macro error');
 					debug(error);
 				});
 		})
 		.catch((error) => {
 			debug('Error');
+			saveError(error);
 			debug(error);
 		});
 
 	next();
 });
-
-const executeSteps = (steps, fn) => {
-	let promises = [];
-	var stepPromise = new Promise((resolve) => { resolve({ message: 'INIT' }); }),
-		stepIndex = 0;
-	while (stepIndex < steps.length) {
-		let currentStep = steps[stepIndex];
-		stepPromise = stepPromise.then((result) => {
-			return fn(currentStep, result);
-		});
-		promises.push(stepPromise);
-		stepIndex++;
-	}
-
-	return Promise.all(promises);
-};
-
-const generateSteps = (config) => {
-	let start = config.start || 0,
-		amount = config.amount || 10,
-		step = config.step,
-		end = start + amount,
-		stepConfig,
-		steps = amount / step;
-
-	steps = steps > 0 ? Math.ceil(steps) : 1;
-	step = amount > step ? step : amount;
-
-	let stepStart = start,
-		stepAmount,
-		stepConfigs = [];
-
-	for (var i = 0; i < steps; i++) {
-		debug('i: ' + i);
-		stepAmount = stepStart + step > end ? end - stepStart : step;
-
-		stepConfig = {
-			start: stepStart,
-			amount: stepAmount
-		};
-
-		debug('step');
-		debug(stepConfig);
-		stepConfigs.push(stepConfig);
-
-		stepStart += step;
-	}
-	debug('steps: ' + steps);
-	debug('step: ' + step);
-	debug('stepConfigs: ', stepConfigs);
-
-	return {
-		steps: steps,
-		end: end,
-		step: step,
-		stepConfigs: stepConfigs
-	}
-};
 
 const testCallback = (config) => {
 	return new Promise((resolve, reject) => {

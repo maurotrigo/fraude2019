@@ -4,9 +4,8 @@ const debug = require('debug')('main');
 const errorDebug = require('debug')('error');
 const parseDebug = require('debug')('parse');
 
-const Database = require('./database/database');
+const electoresDB = require('./database/database')();
 
-const electoresDB = new Database();
 const Api = require('./support/api');
 
 const NO_RESULT = -1,
@@ -55,7 +54,7 @@ module.exports = function(config, host, execId) {
 			for (let itemId = start; itemId < end; itemId++) {
 				debug('Elector ID: ' + itemId);
 
-				promise = api.request(api.getElectorUrl(itemId))
+				promise = api.requestWithTimeout(api.getElectorUrl(itemId), {}, 8)
 					.then(function(body) {
 						let data = parseData(itemId, body);
 
@@ -94,7 +93,12 @@ module.exports = function(config, host, execId) {
 					debug('Finished.');
 					debug('invalidItemsCount:', invalidItemsCount);
 
-					electoresDB.saveElectores(collection);
+					debug('Saving electores...');
+					electoresDB.saveElectores(collection)
+						.then(() => {
+							debug('Electores saved!');
+						})
+						.catch(reject);
 
 					let runResult = electoresDB.saveRun({
 						config: config,

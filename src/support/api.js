@@ -29,7 +29,19 @@ class Api {
 		options = options || this.getDefaultOptions();
 		options.url = url;
 		return requestPromise(options);
-}
+	}
+
+	requestWithTimeout(url, options, timeout = 0) {
+		options = options || this.getDefaultOptions();
+		options.url = url;
+		return new Promise((resolve, reject) => {
+			setTimeout(function() {
+				requestPromise(options)
+					.then(resolve)
+					.catch(reject);
+			}, timeout);
+		});
+	}
 
 	getDefaultOptions() {
 		return Object.assign({}, this.defaultRequestOptions);
