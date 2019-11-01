@@ -94,6 +94,7 @@ const prepareRunOptions = (req) => {
 	};
 };
 
-server.listen(80, () => {
+const port = appConfig.server.port || 8080;
+server.listen(port, () => {
   debug('%s listening at %s', server.name, server.url);
 });
