@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/app.js",
     "cli": "DEBUG=* node src/cli.js",
+    "cli2": "DEBUG=* node src/cli2.js",
     "dev": "DEBUG=* npx nodemon --inspect src/app.js"
   },
   "author": "",

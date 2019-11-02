@@ -1,5 +1,6 @@
 const MongoClient = require('mongodb').MongoClient;
 const debug = require('debug')('db');
+const errorDebug = require('debug')('db-error');
 const moment = require('moment');
 
 const appConfig = require('../../config/config.json')
@@ -65,6 +66,24 @@ class Database {
 				if (err) {
 					reject(err);
 				} else {
+					resolve(result);
+				}
+			});
+		});
+	}
+
+	saveElectorSimple(elector) {
+		return new Promise((resolve, reject) => {
+			let col = this.db.collection('electores');
+				debug('Saving elector: ' + elector.ci);
+
+			col.insertOne(elector, (err, result) => {
+				if (err) {
+					errorDebug('Error saving elector: ' + elector.ci);
+					debug(err);
+					reject(err);
+				} else {
+					debug('Elector saved: ' + elector.ci);
 					resolve(result);
 				}
 			});

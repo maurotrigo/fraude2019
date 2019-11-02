@@ -60,7 +60,7 @@ const executeSteps = (steps, fn) => {
 
 const executeRange = (start, end, fn) => {
 	let promises = [];
-	var stepPromise = new Promise((resolve) => { resolve({ message: 'INIT' }); }),
+	var stepPromise = new Promise((resolve) => { resolve(null); }),
 		stepIndex = 0;
 	while (stepIndex < end) {
 		let currentIndex = stepIndex;
